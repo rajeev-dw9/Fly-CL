@@ -40,3 +40,21 @@ def hebbian_update(projection_matrix, features, lr=0.1, epochs=1, hebb_k=0.01, d
 
     return (W * mask * row_norm).to_sparse_csc()
 
+
+def adaptive_ridge_diag(G, ridge, alpha=1.0, clamp=100.0):
+    """ Task 2: Variance-Adaptive Generalized Ridge.
+
+    Replaces the scalar ridge term `ridge * I` with Lambda = diag(lambda_1, ..., lambda_m), where
+
+        lambda_j = ridge * s_j,   s_j = (G_jj / mean_i G_ii) ** alpha
+
+    G_jj is the accumulated (streaming) second moment of expanded dimension j, i.e. its activity.
+    The scales s_j are clamped to [1 / clamp, clamp] and normalized to mean 1, so the
+    GCV-selected `ridge` remains the global regularization scale. alpha = 0 recovers scalar ridge;
+    alpha = 1 is ridge regression on variance-standardized expanded features.
+    """
+    activity = torch.diagonal(G)
+    scale = (activity / activity.mean()).clamp(min=1e-12) ** alpha
+    scale = scale.clamp(min=1.0 / clamp, max=clamp)
+    scale = scale / scale.mean()
+    return ridge * scale

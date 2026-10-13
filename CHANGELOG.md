@@ -46,3 +46,19 @@ Files: `extensions.py` (new), `main.py`
   (`hebbian_continual`). The Hebbian step is inside the training timer.
 - Unchanged: the sparse expansion, the Top-k winner-take-all, the streaming `G`/`Q` updates, GCV
   and the Cholesky solve. `--projection fixed` (default) is the original method.
+
+## 3. Task 2 — Variance-Adaptive Generalized Ridge
+
+Files: `extensions.py`, `main.py`
+
+- `extensions.py: adaptive_ridge_diag()` — new. Builds the diagonal regularizer
+  `Lambda = diag(lambda_1..lambda_m)` from the streaming statistics:
+  `lambda_j = ridge * s_j`, `s_j = (G_jj / mean_i G_ii) ** alpha`, clamped to `[1/100, 100]` and
+  normalized to mean 1. `G_jj` (diagonal of the accumulated Gram matrix) is the activity of
+  expanded dimension `j`; `ridge` is the original GCV-selected coefficient and stays the global
+  scale. `alpha > 0` regularizes highly active dimensions more, `alpha = 0` is the original
+  scalar ridge, `alpha = 1` equals ridge on variance-standardized dimensions.
+- `main.py`: new flags `--ridge_type {scalar,adaptive}`, `--ridge_alpha`.
+- `main.py`: the solve becomes `cholesky(G + diag(ridge_diag))` when `--ridge_type adaptive`;
+  the original line is kept untouched in the `scalar` branch.
+- Unchanged: streaming updates of `G` and `Q`, GCV selection, Cholesky positive-definite solver.

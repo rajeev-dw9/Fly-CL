@@ -11,7 +11,7 @@ from tqdm import tqdm
 from datasets.load_dataset import load_dataset
 from models.load_model import load_model
 from utils import random_initialization, feature_extract, target2onehot, save_results
-from extensions import hebbian_update
+from extensions import hebbian_update, adaptive_ridge_diag
 
 
 def get_parser() -> argparse.ArgumentParser:
@@ -46,6 +46,11 @@ def get_parser() -> argparse.ArgumentParser:
     parser.add_argument('--hebb_epochs', type=int, default=1, help='Hebbian passes over the task features')
     parser.add_argument('--hebb_k', type=float, default=0.01, help='Fraction of winning units updated per sample')
     parser.add_argument('--hebb_delta', type=float, default=0.0, help='Anti-Hebbian strength')
+
+    # Task 2: Variance-Adaptive Generalized Ridge
+    parser.add_argument('--ridge_type', default='scalar', choices=['scalar', 'adaptive'],
+                        help='scalar: original ridge*I; adaptive: dimension-specific ridge from diag(G)')
+    parser.add_argument('--ridge_alpha', type=float, default=1.0, help='Exponent of the activity-based ridge scaling')
 
     # Experiment utilities (defaults reproduce the original Fly-CL)
     parser.add_argument('--feature_cache', default=None, help='Directory to cache pre-trained features')
@@ -139,8 +144,12 @@ if __name__ == "__main__":
         G = G + train_embeddings @ train_embeddings.T
         ridge = select_ridge_parameter(train_embeddings.T, Y, args.ridge_lower, args.ridge_upper)
         ridges.append(float(ridge))
-        ridge_diag = ridge * torch.ones(G.size(dim=0)).to(device)
-        L = torch.linalg.cholesky(G + ridge * torch.eye(G.size(dim=0)).to(device)) # 40% faster
+        if args.ridge_type == 'adaptive':
+            ridge_diag = adaptive_ridge_diag(G, ridge.item(), args.ridge_alpha)
+            L = torch.linalg.cholesky(G + torch.diag(ridge_diag))
+        else:
+            ridge_diag = ridge * torch.ones(G.size(dim=0)).to(device)
+            L = torch.linalg.cholesky(G + ridge * torch.eye(G.size(dim=0)).to(device)) # 40% faster
         Wo = torch.cholesky_solve(Q, L)
         if cuda_available:
             torch.cuda.synchronize(device)
