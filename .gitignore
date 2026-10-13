@@ -2,3 +2,8 @@ __pycache__/
 .vscode/
 datasets/data/
 .npz
+.venv/
+cache/
+data/
+*.pt
+.venv/

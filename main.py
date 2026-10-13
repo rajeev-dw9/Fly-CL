@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 from datasets.load_dataset import load_dataset
 from models.load_model import load_model
-from utils import random_initialization, feature_extract, target2onehot
+from utils import random_initialization, feature_extract, target2onehot, save_results
 
 
 def get_parser() -> argparse.ArgumentParser:
@@ -36,6 +36,11 @@ def get_parser() -> argparse.ArgumentParser:
     parser.add_argument('--data_augmentation', default=None, help='choose which normalization or not')
     parser.add_argument('--batch_size', type=int, default=128, help='Batch size')
     parser.add_argument('--gpu', type=int, default=0, help='Choose gpu')
+
+    # Experiment utilities (defaults reproduce the original Fly-CL)
+    parser.add_argument('--feature_cache', default=None, help='Directory to cache pre-trained features')
+    parser.add_argument('--save_json', default=None, help='Path to save metrics as json')
+    parser.add_argument('--save_state', default=None, help='Path to save projection matrix and streaming statistics')
     
     return parser
 
@@ -61,6 +66,12 @@ def select_ridge_parameter(Features, Y, ridge_lower, ridge_upper):
     return ridges[optimal_idx]
 
 
+def cache_path(args, split, task):
+    if args.feature_cache is None:
+        return None
+    return f"{args.feature_cache}/{split}_task{task}.pt"
+
+
 if __name__ == "__main__":
     parser = get_parser()
     args = parser.parse_args()
@@ -84,6 +95,7 @@ if __name__ == "__main__":
         selected_cols = torch.randperm(args.embedding_dim)[:non_zero_per_col]
         projection_matrix[row, selected_cols] = torch.randn(non_zero_per_col)
     projection_matrix = projection_matrix.to(device).to_sparse_csc()
+    initial_projection_matrix = projection_matrix
 
     acc = {}
     training_time = []
@@ -91,12 +103,14 @@ if __name__ == "__main__":
     Q = torch.zeros(args.expand_dim, args.num_classes).to(device)
     G = torch.zeros(args.expand_dim, args.expand_dim).to(device)
     last_ridge = None
+    ridges = []
     print("Start Continual Learning")
     for task in range(args.num_tasks):
         acc[task] = []
         training_start = time.time()
         feature_extract_start = time.time()
-        train_embeddings, train_labels = feature_extract(pretrained_model, train_loader[task], device)
+        train_embeddings, train_labels = feature_extract(pretrained_model, train_loader[task], device,
+                                                         cache_path(args, "train", task))
         feature_extract_end = time.time()
         feature_extract_time.append(feature_extract_end - feature_extract_start)
 
@@ -110,13 +124,18 @@ if __name__ == "__main__":
         Q = Q + train_embeddings @ Y
         G = G + train_embeddings @ train_embeddings.T
         ridge = select_ridge_parameter(train_embeddings.T, Y, args.ridge_lower, args.ridge_upper)
+        ridges.append(float(ridge))
+        ridge_diag = ridge * torch.ones(G.size(dim=0)).to(device)
         L = torch.linalg.cholesky(G + ridge * torch.eye(G.size(dim=0)).to(device)) # 40% faster
         Wo = torch.cholesky_solve(Q, L)
+        if cuda_available:
+            torch.cuda.synchronize(device)
         training_end = time.time()
         training_time.append(training_end - training_start)
 
         for sub_task in range(task + 1):
-            test_embeddings, test_labels = feature_extract(pretrained_model, test_loader[sub_task], device)
+            test_embeddings, test_labels = feature_extract(pretrained_model, test_loader[sub_task], device,
+                                                           cache_path(args, "test", sub_task))
             test_embeddings = torch.sparse.mm(projection_matrix, test_embeddings.T)
             values, indices = test_embeddings.topk(int(args.expand_dim * args.coding_level), dim=0, largest=True)
             output = torch.zeros_like(test_embeddings)
@@ -170,3 +189,31 @@ if __name__ == "__main__":
     print("Average Feature Extract Time")
     print(round(np.mean(feature_extract_time), 2))
     print()
+
+    print("Last-stage Accuracy")
+    print(round(A_t[-1], 2))
+    print()
+
+    # BWT: accuracy change on each old task between when it was learned and the end
+    bwt = np.mean([acc[i][-1] - acc[i][0] for i in range(args.num_tasks - 1)])
+    print("Backward Transfer (BWT)")
+    print(round(bwt, 2))
+    print()
+
+    # training time without the (method-independent) backbone feature extraction
+    algorithm_time = np.array(training_time) - np.array(feature_extract_time)
+    print("Average Training Time (excluding feature extraction)")
+    print(round(np.mean(algorithm_time), 2))
+    print()
+
+    if args.save_json is not None:
+        save_results(args.save_json, {
+            "args": vars(args), "acc": acc, "A_t": A_t, "avg_acc": float(np.mean(A_t)),
+            "last_acc": float(A_t[-1]), "bwt": float(bwt), "training_time": training_time,
+            "feature_extract_time": feature_extract_time, "algorithm_time": algorithm_time.tolist(),
+            "ridges": ridges,
+        })
+    if args.save_state is not None:
+        torch.save({"projection_matrix": projection_matrix.to_dense().cpu(),
+                    "initial_projection_matrix": initial_projection_matrix.to_dense().cpu(),
+                    "G": G.cpu(), "ridge_diag": ridge_diag.cpu()}, args.save_state)

@@ -1,3 +1,5 @@
+import json
+import os
 import random
 import torch
 import numpy as np
@@ -21,7 +23,10 @@ def get_parameters(model: nn.Module):
 
 
 @torch.no_grad()
-def feature_extract(model: nn.Module, data_loader: DataLoader, device: torch.device):
+def feature_extract(model: nn.Module, data_loader: DataLoader, device: torch.device, cache_path: str = None):
+    if cache_path is not None and os.path.exists(cache_path):
+        embedding_list, label_list = torch.load(cache_path, map_location=device)
+        return embedding_list, label_list
     embedding_list, label_list = [], []
     with torch.no_grad():
         for i, (data, label) in enumerate(tqdm(data_loader)):
@@ -31,9 +36,18 @@ def feature_extract(model: nn.Module, data_loader: DataLoader, device: torch.dev
             label_list.append(label)
     embedding_list = torch.cat(embedding_list, dim=0)
     label_list = torch.cat(label_list, dim=0)
+    if cache_path is not None:
+        os.makedirs(os.path.dirname(cache_path), exist_ok=True)
+        torch.save((embedding_list.cpu(), label_list.cpu()), cache_path)
     return embedding_list, label_list
 
 def target2onehot(targets, n_classes):
     onehot = torch.zeros(targets.shape[0], n_classes).to(targets.device)
     onehot.scatter_(dim=1, index=targets.long().view(-1, 1), value=1.0)
     return onehot
+
+
+def save_results(path, results):
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    with open(path, "w") as f:
+        json.dump(results, f, indent=2)
