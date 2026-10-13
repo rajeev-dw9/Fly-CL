@@ -62,3 +62,19 @@ Files: `extensions.py`, `main.py`
 - `main.py`: the solve becomes `cholesky(G + diag(ridge_diag))` when `--ridge_type adaptive`;
   the original line is kept untouched in the `scalar` branch.
 - Unchanged: streaming updates of `G` and `Q`, GCV selection, Cholesky positive-definite solver.
+
+## 4. Experiment and analysis scripts
+
+Files: `experiments/` (new)
+
+- `experiments/run.sh` — one CIFAR-100 run with the configuration of `scripts/test_cifar.sh`,
+  cached features, json + log output.
+- `experiments/make_val_cache.py` — holds out the last 10% of each task's cached training
+  features as a validation "test" split, so hyperparameters are not selected on the test set.
+- `experiments/sweep_val.sh` — the validation sweep used to choose the Hebbian and ridge settings.
+- `experiments/run_all.sh` — the final comparison (8 configurations x 3 seeds).
+- `experiments/analyze.py` — prototype correlation matrices before/after the projection, change
+  of the projection, condition numbers of the ridge system, per-dimension ridge analysis.
+- `experiments/summarize.py` — aggregates all json files into `results/summary.md`.
+
+No change to `main.py`, `utils.py` or `extensions.py`.
