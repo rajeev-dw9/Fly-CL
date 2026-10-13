@@ -11,6 +11,7 @@ from tqdm import tqdm
 from datasets.load_dataset import load_dataset
 from models.load_model import load_model
 from utils import random_initialization, feature_extract, target2onehot, save_results
+from extensions import hebbian_update
 
 
 def get_parser() -> argparse.ArgumentParser:
@@ -36,6 +37,15 @@ def get_parser() -> argparse.ArgumentParser:
     parser.add_argument('--data_augmentation', default=None, help='choose which normalization or not')
     parser.add_argument('--batch_size', type=int, default=128, help='Batch size')
     parser.add_argument('--gpu', type=int, default=0, help='Choose gpu')
+
+    # Task 1: Activity-Dependent Learnable Sparse Projection
+    parser.add_argument('--projection', default='fixed', choices=['fixed', 'hebbian_frozen', 'hebbian_continual'],
+                        help='fixed: original random projection; hebbian_frozen: adapt on the first task then '
+                             'freeze; hebbian_continual: adapt on every task')
+    parser.add_argument('--hebb_lr', type=float, default=0.1, help='Hebbian learning rate')
+    parser.add_argument('--hebb_epochs', type=int, default=1, help='Hebbian passes over the task features')
+    parser.add_argument('--hebb_k', type=float, default=0.01, help='Fraction of winning units updated per sample')
+    parser.add_argument('--hebb_delta', type=float, default=0.0, help='Anti-Hebbian strength')
 
     # Experiment utilities (defaults reproduce the original Fly-CL)
     parser.add_argument('--feature_cache', default=None, help='Directory to cache pre-trained features')
@@ -113,6 +123,10 @@ if __name__ == "__main__":
                                                          cache_path(args, "train", task))
         feature_extract_end = time.time()
         feature_extract_time.append(feature_extract_end - feature_extract_start)
+
+        if args.projection == 'hebbian_continual' or (args.projection == 'hebbian_frozen' and task == 0):
+            projection_matrix = hebbian_update(projection_matrix, train_embeddings, args.hebb_lr,
+                                               args.hebb_epochs, args.hebb_k, args.hebb_delta)
 
         train_embeddings = torch.sparse.mm(projection_matrix, train_embeddings.T) # 10000, N
         values, indices = train_embeddings.topk(int(args.expand_dim * args.coding_level), dim=0, largest=True)

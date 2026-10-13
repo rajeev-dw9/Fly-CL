@@ -26,3 +26,23 @@ Files: `main.py`, `utils.py`, `.gitignore`
 - `.gitignore`: ignore `.venv/`, `cache/`, `data/`, `*.pt`.
 
 No change to the learning algorithm: with default flags the run is the original Fly-CL.
+
+## 2. Task 1 — Activity-Dependent Learnable Sparse Projection
+
+Files: `extensions.py` (new), `main.py`
+
+- `extensions.py: hebbian_update()` — new. Takes the original sparse projection matrix and the
+  pre-trained features of a task and returns a projection with **the same non-zero pattern**
+  (binary connectivity mask fixed at initialization) whose active weights were adapted with a
+  local BioHash-style Hebbian / anti-Hebbian rule:
+  `dW_mu = g_mu * (mask_mu * x - <W_mu, x> W_mu)`, with `g = 1` for the `hebb_k` most active
+  units of a sample, `g = -delta` for the next `hebb_k` units, `0` otherwise. Features are
+  centred and L2-normalised for learning only; every row keeps its initial norm so the expanded
+  features stay on the original scale (the ridge grid therefore needs no change).
+- `main.py`: new flags `--projection {fixed,hebbian_frozen,hebbian_continual}`, `--hebb_lr`,
+  `--hebb_epochs`, `--hebb_k`, `--hebb_delta`.
+- `main.py`: 3 lines in the task loop, right after feature extraction, call `hebbian_update`
+  on the first task only (`hebbian_frozen`, the stable variant) or on every task
+  (`hebbian_continual`). The Hebbian step is inside the training timer.
+- Unchanged: the sparse expansion, the Top-k winner-take-all, the streaming `G`/`Q` updates, GCV
+  and the Cholesky solve. `--projection fixed` (default) is the original method.
