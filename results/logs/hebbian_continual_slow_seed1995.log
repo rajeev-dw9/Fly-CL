@@ -1,0 +1,42 @@
+Load and Split CIL Dataset...
+Load and Split CIL Dataset Done
+Start Continual Learning
+Accuracy Matrix
+[np.float64(98.4), np.float64(88.3), np.float64(84.4), np.float64(57.8), np.float64(57.3), np.float64(51.6), np.float64(44.7), np.float64(45.9), np.float64(37.4), np.float64(30.2)]
+['0.00', np.float64(93.5), np.float64(75.9), np.float64(73.3), np.float64(70.7), np.float64(65.4), np.float64(60.2), np.float64(61.2), np.float64(56.1), np.float64(51.7)]
+['0.00', '0.00', np.float64(98.0), np.float64(93.3), np.float64(90.1), np.float64(88.9), np.float64(81.4), np.float64(79.4), np.float64(78.4), np.float64(75.3)]
+['0.00', '0.00', '0.00', np.float64(97.6), np.float64(87.0), np.float64(85.6), np.float64(78.5), np.float64(76.5), np.float64(75.7), np.float64(67.4)]
+['0.00', '0.00', '0.00', '0.00', np.float64(97.7), np.float64(94.9), np.float64(93.2), np.float64(90.6), np.float64(90.3), np.float64(82.9)]
+['0.00', '0.00', '0.00', '0.00', '0.00', np.float64(97.0), np.float64(95.5), np.float64(87.5), np.float64(83.8), np.float64(83.1)]
+['0.00', '0.00', '0.00', '0.00', '0.00', '0.00', np.float64(96.7), np.float64(95.3), np.float64(86.0), np.float64(85.9)]
+['0.00', '0.00', '0.00', '0.00', '0.00', '0.00', '0.00', np.float64(95.1), np.float64(91.6), np.float64(87.8)]
+['0.00', '0.00', '0.00', '0.00', '0.00', '0.00', '0.00', '0.00', np.float64(91.6), np.float64(87.4)]
+['0.00', '0.00', '0.00', '0.00', '0.00', '0.00', '0.00', '0.00', '0.00', np.float64(97.6)]
+
+Average Accuracy
+98.4, 90.9, 86.1, 80.5, 80.56, 80.57, 78.6, 78.94, 76.77, 74.93, 
+
+Accumulated Accuracy
+82.63
+
+Training Time
+9.92, 9.8, 9.76, 9.7, 9.78, 9.93, 9.85, 9.79, 9.84, 9.81, 
+
+Average Training Time
+9.82
+
+Feature Extract Time
+0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
+
+Average Feature Extract Time
+0.0
+
+Last-stage Accuracy
+74.93
+
+Backward Transfer (BWT)
+-23.77
+
+Average Training Time (excluding feature extraction)
+9.82
+

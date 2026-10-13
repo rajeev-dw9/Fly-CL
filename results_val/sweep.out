@@ -1,0 +1,11 @@
+hebb_lr0.5_ep1_k0.01_d0 seed1993: avg 92.45  last 87.08  bwt -5.71  time 7.27s
+hebb_lr0.5_ep5_k0.01_d0 seed1993: avg 92.53  last 87.20  bwt -5.56  time 7.29s
+hebb_lr0.5_ep5_k0.01_d0.4 seed1993: avg 92.29  last 86.92  bwt -5.80  time 7.25s
+hebb_lr0.5_ep5_k0.001_d0 seed1993: avg 92.87  last 87.66  bwt -5.60  time 7.33s
+hebb_lr0.5_ep5_k0.05_d0 seed1993: avg 92.03  last 86.38  bwt -6.00  time 7.30s
+hebb_lr0.5_ep5_k0.3_d0 seed1993: avg 91.78  last 86.30  bwt -5.69  time 7.30s
+hebb_lr1.0_ep10_k0.01_d0.4 seed1993: avg 92.32  last 86.82  bwt -5.62  time 7.26s
+ridge_alpha0.25 seed1993: avg 93.05  last 87.86  bwt -5.36  time 7.24s
+ridge_alpha0.5 seed1993: avg 93.06  last 87.86  bwt -5.33  time 7.27s
+ridge_alpha1.0 seed1993: avg 93.06  last 87.80  bwt -5.49  time 7.25s
+ridge_alpha-0.5 seed1993: avg 93.07  last 88.04  bwt -5.27  time 7.26s

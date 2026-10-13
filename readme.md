@@ -35,6 +35,15 @@ cd scripts
 ./test_vtab.sh
 ```
 
+## 🧪 Project Extensions
+
+Two optional extensions are available behind flags (defaults run the original Fly-CL):
+
+- `--projection hebbian_frozen | hebbian_continual` — activity-dependent learnable sparse projection.
+- `--ridge_type adaptive --ridge_alpha 1.0` — variance-adaptive generalized ridge.
+
+See `RESULTS.md` for the evaluation and `CHANGELOG.md` for the list of changes.
+
 ## 📖 Citation
 
 If you find this repository useful, please consider citing our paper:

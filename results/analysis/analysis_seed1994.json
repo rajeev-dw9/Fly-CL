@@ -1,0 +1,74 @@
+{
+  "projection_change": {
+    "hebbian_frozen": {
+      "mean_row_cosine_to_initial": 0.9033448100090027,
+      "mean_nonzeros_per_row": 299.9997863769531
+    },
+    "hebbian_frozen_strong": {
+      "mean_row_cosine_to_initial": 0.44439390301704407,
+      "mean_nonzeros_per_row": 299.9997863769531
+    },
+    "hebbian_continual_slow": {
+      "mean_row_cosine_to_initial": 0.9612820148468018,
+      "mean_nonzeros_per_row": 299.9997863769531
+    },
+    "hebbian_continual": {
+      "mean_row_cosine_to_initial": 0.5062970519065857,
+      "mean_nonzeros_per_row": 299.9997863769531
+    }
+  },
+  "prototype_mean_abs_offdiag_corr": {
+    "pre-trained features": 0.43457797169685364,
+    "fixed projection + Top-k": 0.3931301534175873,
+    "hebbian_frozen projection + Top-k": 0.3619183599948883,
+    "hebbian_frozen_strong projection + Top-k": 0.41719964146614075,
+    "hebbian_continual_slow projection + Top-k": 0.3738298714160919,
+    "hebbian_continual projection + Top-k": 0.40628522634506226
+  },
+  "prototype_mean_abs_offdiag_corr_first_task_classes": {
+    "pre-trained features": 0.48923635482788086,
+    "fixed projection + Top-k": 0.44542765617370605,
+    "hebbian_frozen projection + Top-k": 0.16297002136707306,
+    "hebbian_frozen_strong projection + Top-k": 0.16784240305423737,
+    "hebbian_continual_slow projection + Top-k": 0.447121262550354,
+    "hebbian_continual projection + Top-k": 0.4999242424964905
+  },
+  "prototype_mean_abs_offdiag_corr_later_task_classes": {
+    "pre-trained features": 0.4328193664550781,
+    "fixed projection + Top-k": 0.3914966881275177,
+    "hebbian_frozen projection + Top-k": 0.3897560238838196,
+    "hebbian_frozen_strong projection + Top-k": 0.4532068073749542,
+    "hebbian_continual_slow projection + Top-k": 0.37380507588386536,
+    "hebbian_continual projection + Top-k": 0.4053376317024231
+  },
+  "condition_number": {
+    "scalar ridge": {
+      "raw": 52279.27300674493,
+      "jacobi_scaled": 174904.85387910932
+    },
+    "adaptive_ridge_inverse": {
+      "raw": 93900.8035823422,
+      "jacobi_scaled": 424379.04428957007
+    },
+    "adaptive_ridge": {
+      "raw": 784217.3169573,
+      "jacobi_scaled": 35790.79747571668
+    }
+  },
+  "activity": {
+    "min": 80061.6796875,
+    "median": 11142258.0,
+    "max": 132723944.0
+  },
+  "ridge_diag": {
+    "scalar": 1000000.0,
+    "adaptive_min": 9999.990234375,
+    "adaptive_median": 748923.65625,
+    "adaptive_max": 8921001.0
+  },
+  "spearman": {
+    "ridge_vs_activity": 0.9999999999879998,
+    "ridge_vs_correlation_load": 0.9886613496224774,
+    "activity_vs_correlation_load": 0.9886613496226135
+  }
+}
