@@ -1,0 +1,280 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=2.2cm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{hyperref}
+
+\newcolumntype{L}{>{\raggedright\arraybackslash}X}
+
+\title{Report of Changes:\\ Two Extensions of Fly-CL}
+\author{}
+\date{13 October 2026}
+
+\begin{document}
+\maketitle
+
+\noindent Base code: official Fly-CL repository (\url{https://github.com/gfyddha/Fly-CL}),
+upstream commit \texttt{193b1b8}.
+Project tasks: (1) Activity-Dependent Learnable Sparse Projection,
+(2) Variance-Adaptive Generalized Ridge.
+
+\section{Principle followed}
+
+\begin{itemize}
+  \item \textbf{Minimal changes to the original code.} Every new behaviour is behind a
+        command-line flag whose default reproduces the original Fly-CL. New logic is in new files.
+  \item \textbf{Every step is a git commit}, so the history shows what changed and when.
+\end{itemize}
+
+Table~\ref{tab:size} gives the size of the change to the original files
+(\texttt{git diff 193b1b8 HEAD -{}-numstat}).
+
+\begin{table}[h]
+\centering
+\caption{Size of the change per file.}
+\label{tab:size}
+\begin{tabular}{lrrl}
+\toprule
+File & Lines added & Lines removed & Kind \\
+\midrule
+\texttt{main.py}       & 75 & 5 & modified \\
+\texttt{utils.py}      & 16 & 2 & modified \\
+\texttt{extensions.py} & 60 & 0 & new (both methods) \\
+\texttt{.gitignore}    & 6  & 1 & modified \\
+\texttt{readme.md}     & 9  & 0 & modified \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+In \texttt{main.py} only four original statements were touched: the \texttt{utils} import, the two
+\texttt{feature\_extract(...)} calls (one extra argument) and the Cholesky line (kept verbatim,
+moved into an \texttt{else} branch). The folders \texttt{datasets/}, \texttt{models/} and
+\texttt{scripts/} are untouched.
+
+\section{Git history}
+
+\begin{table}[h]
+\centering
+\caption{Commits on top of the upstream code (all on 2026-10-13).}
+\begin{tabularx}{\textwidth}{llL}
+\toprule
+Commit & Time & What \\
+\midrule
+\texttt{6ee6341} & 17:13 & Experiment infrastructure: feature cache, BWT / last-stage metrics, json output \\
+\texttt{12e121c} & 18:04 & Task 1: activity-dependent learnable sparse projection (Hebbian) \\
+\texttt{d5bf460} & 18:04 & Task 2: variance-adaptive generalized ridge \\
+\texttt{fb04d49} & 19:00 & Experiment, validation-sweep and analysis scripts \\
+\texttt{d8a03e9} & 19:01 & Results, analysis figures and report \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Useful commands: \texttt{git log -{}-stat}, \texttt{git show <commit>},
+\texttt{git diff 193b1b8 HEAD -{}- main.py}.
+
+\section{Change 1: Experiment infrastructure (commit \texttt{6ee6341})}
+
+No change to the learning algorithm.
+
+\begin{table}[h]
+\centering
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{3.3cm}LL}
+\toprule
+Where & Change & Why \\
+\midrule
+\texttt{utils.py}: \texttt{feature\_extract} &
+optional \texttt{cache\_path} argument: load features from disk if present, otherwise extract and save &
+The backbone is frozen, so features are identical for all methods. Caching makes all methods run
+on exactly the same inputs and cuts a run from about 7 min to about 1.5 min. \\
+\texttt{utils.py}: \texttt{save\_results} & new 4-line helper writing a json file &
+Results are aggregated by script instead of copied from logs. \\
+\texttt{main.py} flags & \texttt{-{}-feature\_cache}, \texttt{-{}-save\_json}, \texttt{-{}-save\_state} &
+Switch the above on; all default to \texttt{None} (off). \\
+\texttt{main.py} end of file & prints last-stage accuracy, BWT, training time excluding feature extraction &
+The project asks for these metrics; the original printed only per-stage and accumulated accuracy and total time. \\
+\texttt{main.py} timer & \texttt{torch.cuda.synchronize()} before the training timer stops &
+GPU calls are asynchronous; without it the measured time can miss pending work. \\
+\texttt{main.py} bookkeeping & \texttt{ridges} list, \texttt{initial\_projection\_matrix}, \texttt{ridge\_diag} &
+Needed only for the analysis (GCV choice, mask check, conditioning). \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Metric definitions added. Let $R_{t,i}$ be the accuracy on task $i$ after learning task $t$,
+with $T$ tasks:
+\begin{align*}
+\text{Last-stage accuracy} &= \text{accuracy on all classes after task } T, \\
+\text{BWT} &= \frac{1}{T-1}\sum_{i=1}^{T-1}\left(R_{T,i} - R_{i,i}\right).
+\end{align*}
+
+\section{Change 2: Task 1, Activity-Dependent Learnable Sparse Projection (commit \texttt{12e121c})}
+
+New function \texttt{hebbian\_update(projection\_matrix, features, lr, epochs, hebb\_k, delta)}
+in \texttt{extensions.py}.
+
+\begin{table}[h]
+\centering
+\caption{How each instruction of Task 1 is met.}
+\begin{tabularx}{\textwidth}{LL}
+\toprule
+Instruction & Implementation \\
+\midrule
+Fix a binary connectivity mask at initialization &
+$M = [W \neq 0]$ taken from the original random projection; all updates are multiplied by $M$. \\
+Replace fixed values by weights learned with a local Hebbian / anti-Hebbian rule &
+BioHash-style rule on the active connections, Eq.~\eqref{eq:hebb}. \\
+Keep the projection sparsity and the same Top-$k$ &
+The returned matrix has the same non-zero pattern; the Top-$k$ code in \texttt{main.py} is unchanged. \\
+Stable variant: adapt on the first task, then freeze & \texttt{-{}-projection hebbian\_frozen} \\
+Optional: continual updates & \texttt{-{}-projection hebbian\_continual} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+For unit $\mu$ with weight row $W_\mu$, mask row $M_\mu$ and input $x$:
+\begin{equation}
+\Delta W_\mu = g_\mu \left( M_\mu \odot x - \langle W_\mu, x\rangle\, W_\mu \right),
+\qquad
+g_\mu =
+\begin{cases}
+1 & \text{if } \mu \text{ is among the } k_h \text{ most active units for } x,\\
+-\delta & \text{if } \mu \text{ is among the next } k_h \text{ units},\\
+0 & \text{otherwise.}
+\end{cases}
+\label{eq:hebb}
+\end{equation}
+Features are centred and $\ell_2$-normalised for learning only. The update of each unit is divided
+by the number of samples that drove it (activity-dependent step). Each row is re-normalised to
+the norm it had at initialization, so the expanded features keep the original scale and the ridge
+grid needs no change.
+
+Change in \texttt{main.py} (3 lines in the task loop, plus 5 flags):
+\begin{verbatim}
+if args.projection == 'hebbian_continual' or \
+        (args.projection == 'hebbian_frozen' and task == 0):
+    projection_matrix = hebbian_update(projection_matrix, train_embeddings,
+                                       args.hebb_lr, args.hebb_epochs,
+                                       args.hebb_k, args.hebb_delta)
+\end{verbatim}
+(The line breaks above are for the page; in the file the condition is on one line.)
+
+New flags: \texttt{-{}-projection \{fixed,hebbian\_frozen,hebbian\_continual\}} (default \texttt{fixed}),
+\texttt{-{}-hebb\_lr} (0.1), \texttt{-{}-hebb\_epochs} (1), \texttt{-{}-hebb\_k} (0.01),
+\texttt{-{}-hebb\_delta} (0.0).
+The Hebbian step is inside the training timer, so its cost is included in the reported time.
+
+\section{Change 3: Task 2, Variance-Adaptive Generalized Ridge (commit \texttt{d5bf460})}
+
+New function \texttt{adaptive\_ridge\_diag(G, ridge, alpha, clamp=100)} in \texttt{extensions.py}.
+
+\begin{table}[h]
+\centering
+\caption{How each instruction of Task 2 is met.}
+\begin{tabularx}{\textwidth}{LL}
+\toprule
+Instruction & Implementation \\
+\midrule
+Use the diagonal of the accumulated Gram matrix as activity / variance &
+\texttt{activity = torch.diagonal(G)} \\
+Replace $\lambda I$ by $\Lambda = \mathrm{diag}(\lambda_1,\dots,\lambda_m)$ &
+returns the vector $\lambda_j$; \texttt{main.py} adds \texttt{torch.diag(ridge\_diag)} to $G$ \\
+Dimension-specific coefficients from streaming statistics, GCV coefficient as global scale &
+Eq.~\eqref{eq:ridge} \\
+Keep streaming updates of $G$, $Q$; efficient positive-definite solver &
+$G$, $Q$, GCV untouched; solved with \texttt{torch.linalg.cholesky} and \texttt{cholesky\_solve} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{equation}
+\lambda_j = \lambda_{\mathrm{GCV}}\; s_j,
+\qquad
+s_j = \left(\frac{G_{jj}}{\tfrac{1}{m}\sum_i G_{ii}}\right)^{\alpha},
+\label{eq:ridge}
+\end{equation}
+with $s_j$ clamped to $[0.01, 100]$ and normalised to mean 1. The classifier is
+$W_o = (G + \Lambda)^{-1} Q$.
+$\alpha = 0$ gives the original scalar ridge; $\alpha = 1$ equals ridge on variance-standardised
+dimensions; $\alpha > 0$ regularizes highly active dimensions more.
+
+Change in \texttt{main.py} (the original line is kept in the \texttt{else} branch):
+\begin{verbatim}
+if args.ridge_type == 'adaptive':
+    ridge_diag = adaptive_ridge_diag(G, ridge.item(), args.ridge_alpha)
+    L = torch.linalg.cholesky(G + torch.diag(ridge_diag))
+else:
+    ridge_diag = ridge * torch.ones(G.size(dim=0)).to(device)
+    L = torch.linalg.cholesky(G + ridge * torch.eye(G.size(dim=0)).to(device))
+\end{verbatim}
+
+New flags: \texttt{-{}-ridge\_type \{scalar,adaptive\}} (default \texttt{scalar}),
+\texttt{-{}-ridge\_alpha} (1.0).
+
+\section{Change 4: Experiment and analysis scripts (commit \texttt{fb04d49})}
+
+All new, in \texttt{experiments/}; none of them changes the method.
+
+\begin{table}[h]
+\centering
+\begin{tabularx}{\textwidth}{lL}
+\toprule
+File & Purpose \\
+\midrule
+\texttt{run.sh} & One CIFAR-100 run with the configuration of \texttt{scripts/test\_cifar.sh}, cached features, json + log. \\
+\texttt{make\_val\_cache.py} & Holds out the last 10\% of each task's training features as a validation split, so hyperparameters are not chosen on the test set. \\
+\texttt{sweep\_val.sh} & The validation sweep for the Hebbian and ridge hyperparameters. \\
+\texttt{run\_all.sh} & The final comparison: 8 configurations $\times$ 3 seeds. \\
+\texttt{analyze.py} & Prototype correlation matrices before / after projection, mask check, condition numbers, per-dimension ridge analysis, figures. \\
+\texttt{summarize.py} & Aggregates all json files into \texttt{results/summary.md}. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Change 5: Results and documentation (commit \texttt{d8a03e9})}
+
+\begin{itemize}
+  \item \texttt{results/} (test-set runs, summary, figures), \texttt{results\_val/} (validation sweep).
+  \item \texttt{RESULTS.md} (report), \texttt{CHANGELOG.md} (running log), a short section in \texttt{readme.md}.
+  \item \texttt{.gitignore}: \texttt{.venv/}, \texttt{cache/}, \texttt{data/}, \texttt{*.pt} (large or machine-specific files).
+\end{itemize}
+
+\section{How to verify that the original behaviour is preserved}
+
+\begin{itemize}
+  \item With default flags no new branch is executed: \texttt{-{}-projection fixed},
+        \texttt{-{}-ridge\_type scalar}, no cache, no json.
+  \item The baseline run gave 93.21 average accuracy before the extension code was added and 93.20
+        after (seed 1993). A difference of 0.01 corresponds to about one test image at one stage;
+        its cause was not investigated (most likely run-to-run GPU floating-point variation).
+  \item \texttt{experiments/analyze.py} asserts that the learned projection has exactly the non-zero
+        pattern of the initial one and that all methods start from the same initial matrix.
+\end{itemize}
+
+\section{Environment notes (not code changes)}
+
+\begin{itemize}
+  \item Runs used torch 2.14.1, torchvision 0.29.1, numpy 2.5 instead of the versions in the readme;
+        the original code runs on them unmodified. \texttt{timm==0.9.16} needs
+        \texttt{huggingface\_hub==0.23.5}.
+  \item CIFAR-100 was copied into \texttt{data/} with the official md5 checksums verified.
+  \item One row of the original random projection has 298 instead of 300 non-zeros for these seeds,
+        as generated by the unmodified initialization; it is the same for all methods.
+\end{itemize}
+
+\section{How to run}
+
+\begin{verbatim}
+# original Fly-CL
+python main.py --dataset CIFAR-100 ...
+# Task 1 (stable variant)
+python main.py --dataset CIFAR-100 ... --projection hebbian_frozen
+# Task 2
+python main.py --dataset CIFAR-100 ... --ridge_type adaptive --ridge_alpha 1.0
+# everything used in the report
+experiments/run_all.sh
+\end{verbatim}
+
+\end{document}
